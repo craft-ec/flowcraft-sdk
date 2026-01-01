@@ -688,6 +688,9 @@
         },
         {
           "name": "stream",
+          "docs": [
+            "Using AccountInfo to support both new streams (init) and existing streams (realloc)."
+          ],
           "writable": true,
           "pda": {
             "seeds": [
