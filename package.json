@@ -9,7 +9,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "copy-idl": "cp ../target/idl/flowcraft.json src/idl.json",
+    "build": "npm run copy-idl && tsc",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build"
   },

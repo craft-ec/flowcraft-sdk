@@ -98,3 +98,4 @@ console.log(RATE_DECIMALS); // 1000000000
 ## License
 
 MIT
+
