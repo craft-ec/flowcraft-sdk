@@ -1,0 +1,54 @@
+{
+  "name": "@craftec/flowcraft-sdk",
+  "version": "0.1.1",
+  "description": "SDK for Flowcraft subscription streaming protocol on Solana",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "solana",
+    "subscription",
+    "streaming",
+    "payments",
+    "anchor",
+    "web3",
+    "blockchain",
+    "defi"
+  ],
+  "author": "Flowcraft",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/craft-ec/flowcraft-sdk.git"
+  },
+  "homepage": "https://github.com/craft-ec/flowcraft-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/craft-ec/flowcraft-sdk/issues"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.98.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "@coral-xyz/anchor": ">=0.30.0",
+    "@solana/web3.js": ">=1.90.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
