@@ -319,14 +319,31 @@ export class FlowcraftClient {
 
   /**
    * Subscribe to a pool (creates stream with first segment)
+   * For new streams, segmentIndex is 0. For reactivated expired streams, segments are cleared so index is also 0.
    */
   async subscribe(
     subscriber: Keypair,
     params: SubscribeParams
-  ): Promise<{ signature: string; stream: PublicKey }> {
+  ): Promise<{ signature: string; stream: PublicKey; segmentIndex: number }> {
     const [configPda] = this.getConfigPda();
     const [streamPda] = this.getStreamPda(params.pool, subscriber.publicKey);
     const [vaultPda] = this.getVaultPda(params.pool);
+
+    // Check if stream exists and get current segment count
+    let segmentIndex = 0;
+    try {
+      const existingStream = await this.fetchStream(streamPda);
+      if (existingStream) {
+        // Check if stream is expired (all segments fully vested or cancelled)
+        const isExpired = existingStream.segments.every(
+          (s) => s.vested.eq(s.amount) || s.cancelled
+        );
+        // If expired, segments will be cleared; otherwise add to existing
+        segmentIndex = isExpired ? 0 : existingStream.segments.length;
+      }
+    } catch {
+      // New stream - segment index is 0
+    }
 
     const signature = await this.program.methods
       .subscribe(params.tier, toBN(params.amount), toBN(params.durationSeconds))
@@ -344,7 +361,7 @@ export class FlowcraftClient {
       .signers([subscriber])
       .rpc();
 
-    return { signature, stream: streamPda };
+    return { signature, stream: streamPda, segmentIndex };
   }
 
   /**
@@ -353,11 +370,18 @@ export class FlowcraftClient {
   async addSegment(
     payer: Keypair,
     params: AddSegmentParams
-  ): Promise<string> {
+  ): Promise<{ signature: string; segmentIndex: number }> {
     const [configPda] = this.getConfigPda();
     const [vaultPda] = this.getVaultPda(params.pool);
 
-    return await this.program.methods
+    // Fetch stream to get current segment count
+    const stream = await this.fetchStream(params.stream);
+    if (!stream) {
+      throw new Error("Stream not found");
+    }
+    const segmentIndex = stream.segments.length;
+
+    const signature = await this.program.methods
       .addSegment(params.tier, toBN(params.amount), toBN(params.durationSeconds))
       .accounts({
         payer: payer.publicKey,
@@ -371,6 +395,8 @@ export class FlowcraftClient {
       })
       .signers([payer])
       .rpc();
+
+    return { signature, segmentIndex };
   }
 
   /**

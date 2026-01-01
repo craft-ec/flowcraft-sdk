@@ -72,15 +72,20 @@ export declare class FlowcraftClient {
     }>;
     /**
      * Subscribe to a pool (creates stream with first segment)
+     * For new streams, segmentIndex is 0. For reactivated expired streams, segments are cleared so index is also 0.
      */
     subscribe(subscriber: Keypair, params: SubscribeParams): Promise<{
         signature: string;
         stream: PublicKey;
+        segmentIndex: number;
     }>;
     /**
      * Add a new segment to an existing subscription
      */
-    addSegment(payer: Keypair, params: AddSegmentParams): Promise<string>;
+    addSegment(payer: Keypair, params: AddSegmentParams): Promise<{
+        signature: string;
+        segmentIndex: number;
+    }>;
     /**
      * Claim vested tokens (pool owner only)
      */
