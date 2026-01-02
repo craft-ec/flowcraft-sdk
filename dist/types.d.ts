@@ -75,6 +75,7 @@ export interface UpgradeSegmentParams {
     stream: PublicKey;
     subscriber: PublicKey;
     segmentIndex: number;
+    newTier: string;
     newAmount: BN | number;
     newDuration: BN | number;
     callerTokenAccount: PublicKey;

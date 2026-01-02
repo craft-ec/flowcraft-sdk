@@ -394,7 +394,7 @@ class FlowcraftClient {
     async upgradeSegment(caller, params) {
         const [vaultPda] = this.getVaultPda(params.pool);
         return await this.program.methods
-            .upgradeSegment(params.segmentIndex, (0, utils_1.toBN)(params.newAmount), (0, utils_1.toBN)(params.newDuration))
+            .upgradeSegment(params.segmentIndex, params.newTier, (0, utils_1.toBN)(params.newAmount), (0, utils_1.toBN)(params.newDuration))
             .accounts({
             caller: caller.publicKey,
             subscriber: params.subscriber,

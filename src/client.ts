@@ -535,6 +535,7 @@ export class FlowcraftClient {
     return await this.program.methods
       .upgradeSegment(
         params.segmentIndex,
+        params.newTier,
         toBN(params.newAmount),
         toBN(params.newDuration)
       )
