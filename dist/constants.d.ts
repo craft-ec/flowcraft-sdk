@@ -6,6 +6,6 @@ export declare const MAX_FEE_BPS = 1000n;
 export declare const MAX_SEGMENTS = 100;
 export declare const CONFIG_SEED = "config";
 export declare const POOL_SEED = "pool";
-export declare const STREAM_SEED = "stream";
+export declare const PASS_SEED = "pass";
 export declare const VAULT_SEED = "vault";
 //# sourceMappingURL=constants.d.ts.map

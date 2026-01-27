@@ -1,7 +1,7 @@
 {
   "name": "@craftec/flowcraft-sdk",
-  "version": "0.1.4",
-  "description": "SDK for Flowcraft subscription streaming protocol on Solana",
+  "version": "0.1.10",
+  "description": "SDK for Flowcraft access pass streaming protocol on Solana",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",

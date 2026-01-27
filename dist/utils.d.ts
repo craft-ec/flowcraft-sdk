@@ -9,9 +9,9 @@ export declare function getConfigPda(programId?: PublicKey): [PublicKey, number]
  */
 export declare function getPoolPda(owner: PublicKey, name: string, programId?: PublicKey): [PublicKey, number];
 /**
- * Derive the stream PDA for a pool and subscriber
+ * Derive the pass PDA for a pool and holder
  */
-export declare function getStreamPda(pool: PublicKey, subscriber: PublicKey, programId?: PublicKey): [PublicKey, number];
+export declare function getPassPda(pool: PublicKey, holder: PublicKey, programId?: PublicKey): [PublicKey, number];
 /**
  * Derive the vault PDA for a pool
  */
@@ -35,7 +35,7 @@ export declare function calculateRemainingDuration(unvested: BN, ratePerSecond: 
 /**
  * Calculate new cost at a different rate for remaining duration
  */
-export declare function calculateUpgradeCost(unvested: BN, currentRate: BN, newRate: BN): {
+export declare function calculateChangeCost(unvested: BN, currentRate: BN, newRate: BN): {
     newCost: BN;
     difference: BN;
     isUpgrade: boolean;
@@ -66,10 +66,10 @@ export declare function calculateSegmentVested(segment: {
     cancelled: boolean;
 }, lastUpdateTime: BN, currentTime: number): BN;
 /**
- * Calculate real-time vesting for an entire stream
+ * Calculate real-time vesting for an entire pass
  * Returns { totalVested, totalUnvested, claimable, isExpired }
  */
-export declare function calculateStreamVesting(stream: {
+export declare function calculatePassVesting(pass: {
     segments: Array<{
         amount: BN;
         vested: BN;

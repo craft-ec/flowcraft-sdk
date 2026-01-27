@@ -74,19 +74,17 @@
           }
         },
         {
-          "name": "stream",
+          "name": "pass",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  115,
-                  116,
-                  114,
-                  101,
+                  112,
                   97,
-                  109
+                  115,
+                  115
                 ]
               },
               {
@@ -95,8 +93,8 @@
               },
               {
                 "kind": "account",
-                "path": "stream.subscriber",
-                "account": "Stream"
+                "path": "pass.holder",
+                "account": "Pass"
               }
             ]
           }
@@ -172,7 +170,7 @@
       ],
       "accounts": [
         {
-          "name": "subscriber",
+          "name": "holder",
           "docs": [
             "Stream subscriber who can cancel any segment"
           ],
@@ -206,19 +204,17 @@
           }
         },
         {
-          "name": "stream",
+          "name": "pass",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  115,
-                  116,
-                  114,
-                  101,
+                  112,
                   97,
-                  109
+                  115,
+                  115
                 ]
               },
               {
@@ -227,7 +223,7 @@
               },
               {
                 "kind": "account",
-                "path": "subscriber"
+                "path": "holder"
               }
             ]
           }
@@ -270,6 +266,160 @@
         {
           "name": "segment_index",
           "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "change_segment",
+      "docs": [
+        "Upgrade or downgrade a segment to a new rate"
+      ],
+      "discriminator": [
+        224,
+        106,
+        78,
+        75,
+        193,
+        40,
+        52,
+        203
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "docs": [
+            "Anyone can upgrade, only subscriber can downgrade"
+          ],
+          "signer": true
+        },
+        {
+          "name": "holder"
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.owner",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.name",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pass",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  115,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "holder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "caller_token_account",
+          "writable": true
+        },
+        {
+          "name": "payer_token_account",
+          "writable": true
+        },
+        {
+          "name": "treasury_token_account",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": [
+        {
+          "name": "segment_index",
+          "type": "u8"
+        },
+        {
+          "name": "new_tier",
+          "type": "string"
+        },
+        {
+          "name": "new_amount",
+          "type": "u64"
+        },
+        {
+          "name": "new_duration",
+          "type": "u64"
         }
       ]
     },
@@ -324,19 +474,17 @@
           }
         },
         {
-          "name": "stream",
+          "name": "pass",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  115,
-                  116,
-                  114,
-                  101,
+                  112,
                   97,
-                  109
+                  115,
+                  115
                 ]
               },
               {
@@ -345,8 +493,8 @@
               },
               {
                 "kind": "account",
-                "path": "stream.subscriber",
-                "account": "Stream"
+                "path": "pass.holder",
+                "account": "Pass"
               }
             ]
           }
@@ -467,6 +615,197 @@
         }
       ],
       "args": []
+    },
+    {
+      "name": "close_config",
+      "docs": [
+        "Close config account (admin only) - for migration/reinitialization"
+      ],
+      "discriminator": [
+        145,
+        9,
+        72,
+        157,
+        95,
+        125,
+        61,
+        85
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_pass",
+      "docs": [
+        "Subscribe to a pool (creates stream if new, adds segment if existing)"
+      ],
+      "discriminator": [
+        198,
+        32,
+        98,
+        83,
+        133,
+        201,
+        66,
+        31
+      ],
+      "accounts": [
+        {
+          "name": "holder",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pool",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  111,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool.owner",
+                "account": "Pool"
+              },
+              {
+                "kind": "account",
+                "path": "pool.name",
+                "account": "Pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "pass",
+          "docs": [
+            "Using AccountInfo to support both new streams (init) and existing streams (realloc)."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  115,
+                  115
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              },
+              {
+                "kind": "account",
+                "path": "holder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "pool"
+              }
+            ]
+          }
+        },
+        {
+          "name": "holder_token_account",
+          "writable": true
+        },
+        {
+          "name": "treasury_token_account",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "tier",
+          "type": "string"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "duration_seconds",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "create_pool",
@@ -621,156 +960,6 @@
       ]
     },
     {
-      "name": "subscribe",
-      "docs": [
-        "Subscribe to a pool (creates stream if new, adds segment if existing)"
-      ],
-      "discriminator": [
-        254,
-        28,
-        191,
-        138,
-        156,
-        179,
-        183,
-        53
-      ],
-      "accounts": [
-        {
-          "name": "subscriber",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "pool",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "pool.owner",
-                "account": "Pool"
-              },
-              {
-                "kind": "account",
-                "path": "pool.name",
-                "account": "Pool"
-              }
-            ]
-          }
-        },
-        {
-          "name": "config",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "stream",
-          "docs": [
-            "Using AccountInfo to support both new streams (init) and existing streams (realloc)."
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  114,
-                  101,
-                  97,
-                  109
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "pool"
-              },
-              {
-                "kind": "account",
-                "path": "subscriber"
-              }
-            ]
-          }
-        },
-        {
-          "name": "vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "pool"
-              }
-            ]
-          }
-        },
-        {
-          "name": "subscriber_token_account",
-          "writable": true
-        },
-        {
-          "name": "treasury_token_account",
-          "writable": true
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "tier",
-          "type": "string"
-        },
-        {
-          "name": "amount",
-          "type": "u64"
-        },
-        {
-          "name": "duration_seconds",
-          "type": "u64"
-        }
-      ]
-    },
-    {
       "name": "update_config",
       "docs": [
         "Update protocol config (admin only)"
@@ -830,140 +1019,6 @@
           }
         }
       ]
-    },
-    {
-      "name": "upgrade_segment",
-      "docs": [
-        "Upgrade or downgrade a segment to a new rate"
-      ],
-      "discriminator": [
-        109,
-        79,
-        30,
-        123,
-        203,
-        28,
-        106,
-        26
-      ],
-      "accounts": [
-        {
-          "name": "caller",
-          "docs": [
-            "Anyone can upgrade, only subscriber can downgrade"
-          ],
-          "signer": true
-        },
-        {
-          "name": "subscriber"
-        },
-        {
-          "name": "pool",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  111,
-                  108
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "pool.owner",
-                "account": "Pool"
-              },
-              {
-                "kind": "account",
-                "path": "pool.name",
-                "account": "Pool"
-              }
-            ]
-          }
-        },
-        {
-          "name": "stream",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  116,
-                  114,
-                  101,
-                  97,
-                  109
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "pool"
-              },
-              {
-                "kind": "account",
-                "path": "subscriber"
-              }
-            ]
-          }
-        },
-        {
-          "name": "vault",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  118,
-                  97,
-                  117,
-                  108,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "pool"
-              }
-            ]
-          }
-        },
-        {
-          "name": "caller_token_account",
-          "writable": true
-        },
-        {
-          "name": "payer_token_account",
-          "writable": true
-        },
-        {
-          "name": "token_program",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        }
-      ],
-      "args": [
-        {
-          "name": "segment_index",
-          "type": "u8"
-        },
-        {
-          "name": "new_tier",
-          "type": "string"
-        },
-        {
-          "name": "new_amount",
-          "type": "u64"
-        },
-        {
-          "name": "new_duration",
-          "type": "u64"
-        }
-      ]
     }
   ],
   "accounts": [
@@ -981,6 +1036,19 @@
       ]
     },
     {
+      "name": "Pass",
+      "discriminator": [
+        40,
+        247,
+        140,
+        113,
+        56,
+        14,
+        57,
+        44
+      ]
+    },
+    {
       "name": "Pool",
       "discriminator": [
         241,
@@ -991,19 +1059,6 @@
         177,
         109,
         188
-      ]
-    },
-    {
-      "name": "Stream",
-      "discriminator": [
-        166,
-        224,
-        59,
-        4,
-        202,
-        10,
-        186,
-        83
       ]
     }
   ],
@@ -1048,6 +1103,19 @@
       ]
     },
     {
+      "name": "PassCreated",
+      "discriminator": [
+        7,
+        218,
+        108,
+        191,
+        58,
+        181,
+        157,
+        48
+      ]
+    },
+    {
       "name": "PoolCreated",
       "discriminator": [
         202,
@@ -1087,29 +1155,16 @@
       ]
     },
     {
-      "name": "SegmentUpgraded",
+      "name": "SegmentChanged",
       "discriminator": [
-        223,
-        5,
-        71,
-        166,
-        230,
-        134,
-        218,
-        157
-      ]
-    },
-    {
-      "name": "Subscribed",
-      "discriminator": [
-        135,
-        59,
-        105,
-        76,
-        190,
-        236,
-        138,
-        228
+        44,
+        26,
+        132,
+        188,
+        199,
+        208,
+        82,
+        185
       ]
     },
     {
@@ -1184,7 +1239,7 @@
     },
     {
       "code": 6011,
-      "name": "StreamExpired",
+      "name": "PassExpired",
       "msg": "Stream expired - cannot add segments to expired stream"
     },
     {
@@ -1204,7 +1259,7 @@
     },
     {
       "code": 6015,
-      "name": "InvalidStream",
+      "name": "InvalidPass",
       "msg": "Invalid stream account"
     }
   ],
@@ -1223,7 +1278,7 @@
             "type": "pubkey"
           },
           {
-            "name": "streams_processed",
+            "name": "passes_processed",
             "type": "u64"
           },
           {
@@ -1298,6 +1353,104 @@
       }
     },
     {
+      "name": "Pass",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "holder",
+            "type": "pubkey"
+          },
+          {
+            "name": "start_time",
+            "type": "i64"
+          },
+          {
+            "name": "last_update_time",
+            "type": "i64"
+          },
+          {
+            "name": "archived_count",
+            "type": "u64"
+          },
+          {
+            "name": "archived_amount",
+            "type": "u64"
+          },
+          {
+            "name": "archived_vested",
+            "type": "u64"
+          },
+          {
+            "name": "total_withdrawn",
+            "type": "u64"
+          },
+          {
+            "name": "current_segment_index",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "segments",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Segment"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "PassCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "pool",
+            "type": "pubkey"
+          },
+          {
+            "name": "pass",
+            "type": "pubkey"
+          },
+          {
+            "name": "holder",
+            "type": "pubkey"
+          },
+          {
+            "name": "tier",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "fee",
+            "type": "u64"
+          },
+          {
+            "name": "duration_seconds",
+            "type": "u64"
+          },
+          {
+            "name": "rate_per_second",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
       "name": "Pool",
       "type": {
         "kind": "struct",
@@ -1315,7 +1468,7 @@
             "type": "string"
           },
           {
-            "name": "total_subscribers",
+            "name": "total_passes",
             "type": "u64"
           },
           {
@@ -1407,7 +1560,7 @@
             "type": "pubkey"
           },
           {
-            "name": "stream",
+            "name": "pass",
             "type": "pubkey"
           },
           {
@@ -1451,7 +1604,7 @@
             "type": "pubkey"
           },
           {
-            "name": "stream",
+            "name": "pass",
             "type": "pubkey"
           },
           {
@@ -1474,7 +1627,7 @@
       }
     },
     {
-      "name": "SegmentUpgraded",
+      "name": "SegmentChanged",
       "type": {
         "kind": "struct",
         "fields": [
@@ -1483,7 +1636,7 @@
             "type": "pubkey"
           },
           {
-            "name": "stream",
+            "name": "pass",
             "type": "pubkey"
           },
           {
@@ -1511,106 +1664,12 @@
             "type": "u64"
           },
           {
-            "name": "is_upgrade",
-            "type": "bool"
-          }
-        ]
-      }
-    },
-    {
-      "name": "Stream",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "subscriber",
-            "type": "pubkey"
-          },
-          {
-            "name": "start_time",
-            "type": "i64"
-          },
-          {
-            "name": "last_update_time",
-            "type": "i64"
-          },
-          {
-            "name": "archived_count",
-            "type": "u64"
-          },
-          {
-            "name": "archived_amount",
-            "type": "u64"
-          },
-          {
-            "name": "archived_vested",
-            "type": "u64"
-          },
-          {
-            "name": "total_withdrawn",
-            "type": "u64"
-          },
-          {
-            "name": "current_segment_index",
-            "type": "u8"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "segments",
-            "type": {
-              "vec": {
-                "defined": {
-                  "name": "Segment"
-                }
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "Subscribed",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "pool",
-            "type": "pubkey"
-          },
-          {
-            "name": "stream",
-            "type": "pubkey"
-          },
-          {
-            "name": "subscriber",
-            "type": "pubkey"
-          },
-          {
-            "name": "tier",
-            "type": "string"
-          },
-          {
-            "name": "amount",
-            "type": "u64"
-          },
-          {
             "name": "fee",
             "type": "u64"
           },
           {
-            "name": "duration_seconds",
-            "type": "u64"
-          },
-          {
-            "name": "rate_per_second",
-            "type": "u64"
+            "name": "is_upgrade",
+            "type": "bool"
           }
         ]
       }
@@ -1625,7 +1684,7 @@
             "type": "pubkey"
           },
           {
-            "name": "stream",
+            "name": "pass",
             "type": "pubkey"
           },
           {

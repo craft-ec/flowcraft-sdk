@@ -12,7 +12,7 @@ export interface Pool {
   owner: PublicKey;
   mint: PublicKey;
   name: string;
-  totalSubscribers: BN;
+  totalPasses: BN;
   totalDeposited: BN;
   totalWithdrawn: BN;
   totalRefunded: BN;
@@ -29,9 +29,9 @@ export interface Segment {
   cancelled: boolean;
 }
 
-export interface Stream {
+export interface Pass {
   pool: PublicKey;
-  subscriber: PublicKey;
+  holder: PublicKey;
   startTime: BN;
   lastUpdateTime: BN;
   archivedCount: BN;
@@ -48,18 +48,18 @@ export interface CreatePoolParams {
   mint: PublicKey;
 }
 
-export interface SubscribeParams {
+export interface CreatePassParams {
   pool: PublicKey;
   tier: string;
   amount: BN | number;
   durationSeconds: BN | number;
-  subscriberTokenAccount: PublicKey;
+  holderTokenAccount: PublicKey;
   treasuryTokenAccount: PublicKey;
 }
 
 export interface AddSegmentParams {
   pool: PublicKey;
-  stream: PublicKey;
+  pass: PublicKey;
   tier: string;
   amount: BN | number;
   durationSeconds: BN | number;
@@ -69,27 +69,28 @@ export interface AddSegmentParams {
 
 export interface ClaimParams {
   pool: PublicKey;
-  stream: PublicKey;
+  pass: PublicKey;
   ownerTokenAccount: PublicKey;
 }
 
 export interface CancelSegmentParams {
   pool: PublicKey;
-  stream: PublicKey;
+  pass: PublicKey;
   segmentIndex: number;
   refundTokenAccount: PublicKey;
 }
 
-export interface UpgradeSegmentParams {
+export interface ChangeSegmentParams {
   pool: PublicKey;
-  stream: PublicKey;
-  subscriber: PublicKey;
+  pass: PublicKey;
+  holder: PublicKey;
   segmentIndex: number;
   newTier: string;
   newAmount: BN | number;
   newDuration: BN | number;
   callerTokenAccount: PublicKey;
   payerTokenAccount: PublicKey;
+  treasuryTokenAccount: PublicKey;
 }
 
 export interface PoolInfo {
@@ -97,17 +98,17 @@ export interface PoolInfo {
   owner: PublicKey;
   mint: PublicKey;
   name: string;
-  totalSubscribers: number;
+  totalPasses: number;
   totalDeposited: BN;
   totalWithdrawn: BN;
   totalRefunded: BN;
   createdAt: Date;
 }
 
-export interface StreamInfo {
+export interface PassInfo {
   address: PublicKey;
   pool: PublicKey;
-  subscriber: PublicKey;
+  holder: PublicKey;
   startTime: Date;
   totalDeposited: BN;
   totalVested: BN;
@@ -133,9 +134,9 @@ export interface SegmentInfo {
 
 export interface PoolAggregateStats {
   pool: PublicKey;
-  totalStreams: number;
-  activeStreams: number;
-  expiredStreams: number;
+  totalPasses: number;
+  activePasses: number;
+  expiredPasses: number;
   totalDeposited: BN;
   totalVested: BN;
   totalWithdrawn: BN;
@@ -144,7 +145,7 @@ export interface PoolAggregateStats {
   calculatedAt: Date;
 }
 
-export interface StreamWithAddress {
+export interface PassWithAddress {
   address: PublicKey;
-  stream: Stream;
+  pass: Pass;
 }

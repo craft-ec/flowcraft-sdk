@@ -1,6 +1,6 @@
 import { Connection, PublicKey, Keypair } from "@solana/web3.js";
 import { Program, AnchorProvider, Wallet, BN, Idl } from "@coral-xyz/anchor";
-import { Config, Pool, Stream, PoolInfo, StreamInfo, PoolAggregateStats, StreamWithAddress, CreatePoolParams, SubscribeParams, AddSegmentParams, ClaimParams, CancelSegmentParams, UpgradeSegmentParams } from "./types";
+import { Config, Pool, Pass, PoolInfo, PassInfo, PoolAggregateStats, PassWithAddress, CreatePoolParams, CreatePassParams, AddSegmentParams, ClaimParams, CancelSegmentParams, ChangeSegmentParams } from "./types";
 export declare const IDL: Idl;
 export declare class FlowcraftClient {
     readonly program: Program;
@@ -16,9 +16,9 @@ export declare class FlowcraftClient {
      */
     getPoolPda(owner: PublicKey, name: string): [PublicKey, number];
     /**
-     * Get the stream PDA for a pool and subscriber
+     * Get the pass PDA for a pool and holder
      */
-    getStreamPda(pool: PublicKey, subscriber: PublicKey): [PublicKey, number];
+    getPassPda(pool: PublicKey, holder: PublicKey): [PublicKey, number];
     /**
      * Get the vault PDA for a pool
      */
@@ -36,21 +36,21 @@ export declare class FlowcraftClient {
      */
     fetchPoolByOwner(owner: PublicKey, name: string): Promise<Pool | null>;
     /**
-     * Fetch a stream by address
+     * Fetch a pass by address
      */
-    fetchStream(stream: PublicKey): Promise<Stream | null>;
+    fetchPass(pass: PublicKey): Promise<Pass | null>;
     /**
-     * Fetch a stream by pool and subscriber
+     * Fetch a pass by pool and holder
      */
-    fetchStreamBySubscriber(pool: PublicKey, subscriber: PublicKey): Promise<Stream | null>;
+    fetchPassByHolder(pool: PublicKey, holder: PublicKey): Promise<Pass | null>;
     /**
      * Fetch pool with computed info
      */
     getPoolInfo(pool: PublicKey): Promise<PoolInfo | null>;
     /**
-     * Fetch stream with computed info
+     * Fetch pass with computed info
      */
-    getStreamInfo(stream: PublicKey): Promise<StreamInfo | null>;
+    getPassInfo(pass: PublicKey): Promise<PassInfo | null>;
     /**
      * Initialize the protocol config (one-time setup)
      */
@@ -60,7 +60,7 @@ export declare class FlowcraftClient {
      */
     updateConfig(admin: Keypair, newTreasury?: PublicKey, newFeeBps?: number, newAdmin?: PublicKey): Promise<string>;
     /**
-     * Create a new subscription pool
+     * Create a new pool
      * @param payer - Keypair that pays for rent (signs the transaction)
      * @param owner - PublicKey of pool owner (can be any account, including PDA)
      * @param params - Pool creation parameters
@@ -71,16 +71,16 @@ export declare class FlowcraftClient {
         vault: PublicKey;
     }>;
     /**
-     * Subscribe to a pool (creates stream with first segment)
-     * For new streams, segmentIndex is 0. For reactivated expired streams, segments are cleared so index is also 0.
+     * Create a pass (creates pass with first segment)
+     * For new passes, segmentIndex is 0. For reactivated expired passes, segments are cleared so index is also 0.
      */
-    subscribe(subscriber: Keypair, params: SubscribeParams): Promise<{
+    createPass(holder: Keypair, params: CreatePassParams): Promise<{
         signature: string;
-        stream: PublicKey;
+        pass: PublicKey;
         segmentIndex: number;
     }>;
     /**
-     * Add a new segment to an existing subscription
+     * Add a new segment to an existing pass
      */
     addSegment(payer: Keypair, params: AddSegmentParams): Promise<{
         signature: string;
@@ -91,63 +91,63 @@ export declare class FlowcraftClient {
      */
     claim(owner: Keypair, params: ClaimParams): Promise<string>;
     /**
-     * Claim vested tokens from multiple streams in a single transaction
+     * Claim vested tokens from multiple passes in a single transaction
      */
     claimBatch(owner: Keypair, params: {
         pool: PublicKey;
-        streams: PublicKey[];
+        passes: PublicKey[];
         ownerTokenAccount: PublicKey;
     }): Promise<string>;
     /**
-     * Build batch claim transactions for all streams in a pool
+     * Build batch claim transactions for all passes in a pool
      * Returns transactions ready to be signed with signAllTransactions
      */
     buildClaimAllTransactions(owner: PublicKey, pool: PublicKey, ownerTokenAccount: PublicKey, batchSize?: number): Promise<{
         transactions: any[];
-        totalStreams: number;
+        totalPasses: number;
     }>;
     /**
-     * Cancel a segment (subscriber only)
+     * Cancel a segment (holder only)
      */
-    cancelSegment(subscriber: Keypair, params: CancelSegmentParams): Promise<string>;
+    cancelSegment(holder: Keypair, params: CancelSegmentParams): Promise<string>;
     /**
-     * Upgrade or downgrade a segment
+     * Change segment tier (upgrade or downgrade)
      */
-    upgradeSegment(caller: Keypair, params: UpgradeSegmentParams): Promise<string>;
+    changeSegment(caller: Keypair, params: ChangeSegmentParams): Promise<string>;
     /**
      * Check if a pool exists
      */
     poolExists(owner: PublicKey, name: string): Promise<boolean>;
     /**
-     * Check if a subscription stream exists
+     * Check if a pass exists
      */
-    subscriptionExists(pool: PublicKey, subscriber: PublicKey): Promise<boolean>;
+    passExists(pool: PublicKey, holder: PublicKey): Promise<boolean>;
     /**
-     * Get claimable amount for a stream
+     * Get claimable amount for a pass
      */
-    getClaimable(stream: PublicKey): Promise<BN>;
+    getClaimable(pass: PublicKey): Promise<BN>;
     /**
-     * Check if subscription is expired
+     * Check if pass is expired
      */
-    isSubscriptionExpired(stream: PublicKey): Promise<boolean>;
+    isPassExpired(pass: PublicKey): Promise<boolean>;
     /**
-     * Fetch all streams for a pool using getProgramAccounts
-     * Stream account layout: [8 discriminator][32 pool][32 subscriber]...
+     * Fetch all passes for a pool using getProgramAccounts
+     * Pass account layout: [8 discriminator][32 pool][32 holder]...
      * Filter by pool pubkey at offset 8
      */
-    fetchStreamsByPool(pool: PublicKey): Promise<StreamWithAddress[]>;
+    fetchPassesByPool(pool: PublicKey): Promise<PassWithAddress[]>;
     /**
      * Calculate real-time aggregate statistics for a pool
-     * Fetches all streams and calculates vesting off-chain
+     * Fetches all passes and calculates vesting off-chain
      */
     getPoolAggregateStats(pool: PublicKey): Promise<PoolAggregateStats>;
     /**
-     * Get real-time claimable amount for a stream (calculated off-chain)
+     * Get real-time claimable amount for a pass (calculated off-chain)
      */
-    getRealTimeClaimable(streamAddress: PublicKey): Promise<BN>;
+    getRealTimeClaimable(passAddress: PublicKey): Promise<BN>;
     /**
-     * Get detailed stream info with real-time vesting calculation
+     * Get detailed pass info with real-time vesting calculation
      */
-    getStreamInfoRealTime(streamAddress: PublicKey): Promise<StreamInfo | null>;
+    getPassInfoRealTime(passAddress: PublicKey): Promise<PassInfo | null>;
 }
 //# sourceMappingURL=client.d.ts.map

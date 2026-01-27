@@ -2,19 +2,19 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getConfigPda = getConfigPda;
 exports.getPoolPda = getPoolPda;
-exports.getStreamPda = getStreamPda;
+exports.getPassPda = getPassPda;
 exports.getVaultPda = getVaultPda;
 exports.calculateFee = calculateFee;
 exports.calculateNetAmount = calculateNetAmount;
 exports.calculateRate = calculateRate;
 exports.calculateRemainingDuration = calculateRemainingDuration;
-exports.calculateUpgradeCost = calculateUpgradeCost;
+exports.calculateChangeCost = calculateChangeCost;
 exports.bnToNumber = bnToNumber;
 exports.numberToBn = numberToBn;
 exports.formatTokenAmount = formatTokenAmount;
 exports.toBN = toBN;
 exports.calculateSegmentVested = calculateSegmentVested;
-exports.calculateStreamVesting = calculateStreamVesting;
+exports.calculatePassVesting = calculatePassVesting;
 const web3_js_1 = require("@solana/web3.js");
 const anchor_1 = require("@coral-xyz/anchor");
 const constants_1 = require("./constants");
@@ -31,10 +31,10 @@ function getPoolPda(owner, name, programId = constants_1.PROGRAM_ID) {
     return web3_js_1.PublicKey.findProgramAddressSync([Buffer.from(constants_1.POOL_SEED), owner.toBuffer(), Buffer.from(name)], programId);
 }
 /**
- * Derive the stream PDA for a pool and subscriber
+ * Derive the pass PDA for a pool and holder
  */
-function getStreamPda(pool, subscriber, programId = constants_1.PROGRAM_ID) {
-    return web3_js_1.PublicKey.findProgramAddressSync([Buffer.from(constants_1.STREAM_SEED), pool.toBuffer(), subscriber.toBuffer()], programId);
+function getPassPda(pool, holder, programId = constants_1.PROGRAM_ID) {
+    return web3_js_1.PublicKey.findProgramAddressSync([Buffer.from(constants_1.PASS_SEED), pool.toBuffer(), holder.toBuffer()], programId);
 }
 /**
  * Derive the vault PDA for a pool
@@ -74,7 +74,7 @@ function calculateRemainingDuration(unvested, ratePerSecond) {
 /**
  * Calculate new cost at a different rate for remaining duration
  */
-function calculateUpgradeCost(unvested, currentRate, newRate) {
+function calculateChangeCost(unvested, currentRate, newRate) {
     const remainingDuration = calculateRemainingDuration(unvested, currentRate);
     const newCost = remainingDuration
         .mul(newRate)
@@ -133,15 +133,15 @@ function calculateSegmentVested(segment, lastUpdateTime, currentTime) {
     return segment.vested.add(newVested);
 }
 /**
- * Calculate real-time vesting for an entire stream
+ * Calculate real-time vesting for an entire pass
  * Returns { totalVested, totalUnvested, claimable, isExpired }
  */
-function calculateStreamVesting(stream, currentTime = Math.floor(Date.now() / 1000)) {
-    let totalDeposited = stream.archivedAmount;
-    let totalVested = stream.archivedVested;
-    let remainingTime = new anchor_1.BN(currentTime).sub(stream.lastUpdateTime);
+function calculatePassVesting(pass, currentTime = Math.floor(Date.now() / 1000)) {
+    let totalDeposited = pass.archivedAmount;
+    let totalVested = pass.archivedVested;
+    let remainingTime = new anchor_1.BN(currentTime).sub(pass.lastUpdateTime);
     let allComplete = true;
-    for (const segment of stream.segments) {
+    for (const segment of pass.segments) {
         totalDeposited = totalDeposited.add(segment.amount);
         if (segment.cancelled) {
             totalVested = totalVested.add(segment.vested);
@@ -173,7 +173,7 @@ function calculateStreamVesting(stream, currentTime = Math.floor(Date.now() / 10
         }
     }
     const totalUnvested = totalDeposited.sub(totalVested);
-    const claimable = totalVested.sub(stream.totalWithdrawn);
+    const claimable = totalVested.sub(pass.totalWithdrawn);
     return {
         totalDeposited,
         totalVested,

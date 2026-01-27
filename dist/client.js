@@ -36,10 +36,10 @@ class FlowcraftClient {
         return (0, utils_1.getPoolPda)(owner, name, this.programId);
     }
     /**
-     * Get the stream PDA for a pool and subscriber
+     * Get the pass PDA for a pool and holder
      */
-    getStreamPda(pool, subscriber) {
-        return (0, utils_1.getStreamPda)(pool, subscriber, this.programId);
+    getPassPda(pool, holder) {
+        return (0, utils_1.getPassPda)(pool, holder, this.programId);
     }
     /**
      * Get the vault PDA for a pool
@@ -83,11 +83,11 @@ class FlowcraftClient {
         return this.fetchPool(poolPda);
     }
     /**
-     * Fetch a stream by address
+     * Fetch a pass by address
      */
-    async fetchStream(stream) {
+    async fetchPass(pass) {
         try {
-            const account = await this.program.account.stream.fetch(stream);
+            const account = await this.program.account.pass.fetch(pass);
             return account;
         }
         catch {
@@ -95,11 +95,11 @@ class FlowcraftClient {
         }
     }
     /**
-     * Fetch a stream by pool and subscriber
+     * Fetch a pass by pool and holder
      */
-    async fetchStreamBySubscriber(pool, subscriber) {
-        const [streamPda] = this.getStreamPda(pool, subscriber);
-        return this.fetchStream(streamPda);
+    async fetchPassByHolder(pool, holder) {
+        const [passPda] = this.getPassPda(pool, holder);
+        return this.fetchPass(passPda);
     }
     /**
      * Fetch pool with computed info
@@ -113,7 +113,7 @@ class FlowcraftClient {
             owner: poolData.owner,
             mint: poolData.mint,
             name: poolData.name,
-            totalSubscribers: poolData.totalSubscribers.toNumber(),
+            totalPasses: poolData.totalPasses.toNumber(),
             totalDeposited: poolData.totalDeposited,
             totalWithdrawn: poolData.totalWithdrawn,
             totalRefunded: poolData.totalRefunded,
@@ -121,17 +121,17 @@ class FlowcraftClient {
         };
     }
     /**
-     * Fetch stream with computed info
+     * Fetch pass with computed info
      */
-    async getStreamInfo(stream) {
-        const streamData = await this.fetchStream(stream);
-        if (!streamData)
+    async getPassInfo(pass) {
+        const passData = await this.fetchPass(pass);
+        if (!passData)
             return null;
-        let totalDeposited = streamData.archivedAmount;
-        let totalVested = streamData.archivedVested;
+        let totalDeposited = passData.archivedAmount;
+        let totalVested = passData.archivedVested;
         let activeSegments = 0;
         let cancelledSegments = 0;
-        const segments = streamData.segments.map((seg, index) => {
+        const segments = passData.segments.map((seg, index) => {
             totalDeposited = totalDeposited.add(seg.amount);
             totalVested = totalVested.add(seg.vested);
             if (seg.cancelled) {
@@ -152,16 +152,16 @@ class FlowcraftClient {
                 isComplete: seg.vested.eq(seg.amount) || seg.cancelled,
             };
         });
-        const claimable = totalVested.sub(streamData.totalWithdrawn);
-        const isExpired = streamData.segments.every((s) => s.vested.eq(s.amount) || s.cancelled);
+        const claimable = totalVested.sub(passData.totalWithdrawn);
+        const isExpired = passData.segments.every((s) => s.vested.eq(s.amount) || s.cancelled);
         return {
-            address: stream,
-            pool: streamData.pool,
-            subscriber: streamData.subscriber,
-            startTime: new Date(streamData.startTime.toNumber() * 1000),
+            address: pass,
+            pool: passData.pool,
+            holder: passData.holder,
+            startTime: new Date(passData.startTime.toNumber() * 1000),
             totalDeposited,
             totalVested,
-            totalWithdrawn: streamData.totalWithdrawn,
+            totalWithdrawn: passData.totalWithdrawn,
             claimable,
             activeSegments,
             cancelledSegments,
@@ -205,7 +205,7 @@ class FlowcraftClient {
     // Pool Instructions
     // ============================================================================
     /**
-     * Create a new subscription pool
+     * Create a new pool
      * @param payer - Keypair that pays for rent (signs the transaction)
      * @param owner - PublicKey of pool owner (can be any account, including PDA)
      * @param params - Pool creation parameters
@@ -229,66 +229,66 @@ class FlowcraftClient {
         return { signature, pool: poolPda, vault: vaultPda };
     }
     // ============================================================================
-    // Subscription Instructions
+    // Pass Instructions
     // ============================================================================
     /**
-     * Subscribe to a pool (creates stream with first segment)
-     * For new streams, segmentIndex is 0. For reactivated expired streams, segments are cleared so index is also 0.
+     * Create a pass (creates pass with first segment)
+     * For new passes, segmentIndex is 0. For reactivated expired passes, segments are cleared so index is also 0.
      */
-    async subscribe(subscriber, params) {
+    async createPass(holder, params) {
         const [configPda] = this.getConfigPda();
-        const [streamPda] = this.getStreamPda(params.pool, subscriber.publicKey);
+        const [passPda] = this.getPassPda(params.pool, holder.publicKey);
         const [vaultPda] = this.getVaultPda(params.pool);
-        // Check if stream exists and get current segment count
+        // Check if pass exists and get current segment count
         let segmentIndex = 0;
         try {
-            const existingStream = await this.fetchStream(streamPda);
-            if (existingStream) {
-                // Check if stream is expired (all segments fully vested or cancelled)
-                const isExpired = existingStream.segments.every((s) => s.vested.eq(s.amount) || s.cancelled);
+            const existingPass = await this.fetchPass(passPda);
+            if (existingPass) {
+                // Check if pass is expired (all segments fully vested or cancelled)
+                const isExpired = existingPass.segments.every((s) => s.vested.eq(s.amount) || s.cancelled);
                 // If expired, segments will be cleared; otherwise add to existing
-                segmentIndex = isExpired ? 0 : existingStream.segments.length;
+                segmentIndex = isExpired ? 0 : existingPass.segments.length;
             }
         }
         catch {
-            // New stream - segment index is 0
+            // New pass - segment index is 0
         }
         const signature = await this.program.methods
-            .subscribe(params.tier, (0, utils_1.toBN)(params.amount), (0, utils_1.toBN)(params.durationSeconds))
+            .createPass(params.tier, (0, utils_1.toBN)(params.amount), (0, utils_1.toBN)(params.durationSeconds))
             .accounts({
-            subscriber: subscriber.publicKey,
+            holder: holder.publicKey,
             pool: params.pool,
             config: configPda,
-            stream: streamPda,
+            pass: passPda,
             vault: vaultPda,
-            subscriberTokenAccount: params.subscriberTokenAccount,
+            holderTokenAccount: params.holderTokenAccount,
             treasuryTokenAccount: params.treasuryTokenAccount,
             tokenProgram: spl_token_1.TOKEN_PROGRAM_ID,
             systemProgram: web3_js_1.SystemProgram.programId,
         })
-            .signers([subscriber])
+            .signers([holder])
             .rpc();
-        return { signature, stream: streamPda, segmentIndex };
+        return { signature, pass: passPda, segmentIndex };
     }
     /**
-     * Add a new segment to an existing subscription
+     * Add a new segment to an existing pass
      */
     async addSegment(payer, params) {
         const [configPda] = this.getConfigPda();
         const [vaultPda] = this.getVaultPda(params.pool);
-        // Fetch stream to get current segment count
-        const stream = await this.fetchStream(params.stream);
-        if (!stream) {
-            throw new Error("Stream not found");
+        // Fetch pass to get current segment count
+        const pass = await this.fetchPass(params.pass);
+        if (!pass) {
+            throw new Error("Pass not found");
         }
-        const segmentIndex = stream.segments.length;
+        const segmentIndex = pass.segments.length;
         const signature = await this.program.methods
             .addSegment(params.tier, (0, utils_1.toBN)(params.amount), (0, utils_1.toBN)(params.durationSeconds))
             .accounts({
             payer: payer.publicKey,
             pool: params.pool,
             config: configPda,
-            stream: params.stream,
+            pass: params.pass,
             vault: vaultPda,
             payerTokenAccount: params.payerTokenAccount,
             treasuryTokenAccount: params.treasuryTokenAccount,
@@ -308,7 +308,7 @@ class FlowcraftClient {
             .accounts({
             owner: owner.publicKey,
             pool: params.pool,
-            stream: params.stream,
+            pass: params.pass,
             vault: vaultPda,
             ownerTokenAccount: params.ownerTokenAccount,
             tokenProgram: spl_token_1.TOKEN_PROGRAM_ID,
@@ -317,7 +317,7 @@ class FlowcraftClient {
             .rpc();
     }
     /**
-     * Claim vested tokens from multiple streams in a single transaction
+     * Claim vested tokens from multiple passes in a single transaction
      */
     async claimBatch(owner, params) {
         const [vaultPda] = this.getVaultPda(params.pool);
@@ -330,8 +330,8 @@ class FlowcraftClient {
             ownerTokenAccount: params.ownerTokenAccount,
             tokenProgram: spl_token_1.TOKEN_PROGRAM_ID,
         })
-            .remainingAccounts(params.streams.map((stream) => ({
-            pubkey: stream,
+            .remainingAccounts(params.passes.map((pass) => ({
+            pubkey: pass,
             isSigner: false,
             isWritable: true,
         })))
@@ -339,18 +339,18 @@ class FlowcraftClient {
             .rpc();
     }
     /**
-     * Build batch claim transactions for all streams in a pool
+     * Build batch claim transactions for all passes in a pool
      * Returns transactions ready to be signed with signAllTransactions
      */
     async buildClaimAllTransactions(owner, pool, ownerTokenAccount, batchSize = 20) {
-        // Fetch all streams for this pool
-        const streams = await this.fetchStreamsByPool(pool);
-        const streamAddresses = streams.map((s) => s.address);
+        // Fetch all passes for this pool
+        const passes = await this.fetchPassesByPool(pool);
+        const passAddresses = passes.map((p) => p.address);
         const [vaultPda] = this.getVaultPda(pool);
         const transactions = [];
         // Split into batches
-        for (let i = 0; i < streamAddresses.length; i += batchSize) {
-            const batch = streamAddresses.slice(i, i + batchSize);
+        for (let i = 0; i < passAddresses.length; i += batchSize) {
+            const batch = passAddresses.slice(i, i + batchSize);
             const tx = await this.program.methods
                 .claimBatch()
                 .accounts({
@@ -368,41 +368,44 @@ class FlowcraftClient {
                 .transaction();
             transactions.push(tx);
         }
-        return { transactions, totalStreams: streamAddresses.length };
+        return { transactions, totalPasses: passAddresses.length };
     }
     /**
-     * Cancel a segment (subscriber only)
+     * Cancel a segment (holder only)
      */
-    async cancelSegment(subscriber, params) {
+    async cancelSegment(holder, params) {
         const [vaultPda] = this.getVaultPda(params.pool);
         return await this.program.methods
             .cancelSegment(params.segmentIndex)
             .accounts({
-            subscriber: subscriber.publicKey,
+            holder: holder.publicKey,
             pool: params.pool,
-            stream: params.stream,
+            pass: params.pass,
             vault: vaultPda,
             refundTokenAccount: params.refundTokenAccount,
             tokenProgram: spl_token_1.TOKEN_PROGRAM_ID,
         })
-            .signers([subscriber])
+            .signers([holder])
             .rpc();
     }
     /**
-     * Upgrade or downgrade a segment
+     * Change segment tier (upgrade or downgrade)
      */
-    async upgradeSegment(caller, params) {
+    async changeSegment(caller, params) {
+        const [configPda] = this.getConfigPda();
         const [vaultPda] = this.getVaultPda(params.pool);
         return await this.program.methods
-            .upgradeSegment(params.segmentIndex, params.newTier, (0, utils_1.toBN)(params.newAmount), (0, utils_1.toBN)(params.newDuration))
+            .changeSegment(params.segmentIndex, params.newTier, (0, utils_1.toBN)(params.newAmount), (0, utils_1.toBN)(params.newDuration))
             .accounts({
             caller: caller.publicKey,
-            subscriber: params.subscriber,
+            holder: params.holder,
+            config: configPda,
             pool: params.pool,
-            stream: params.stream,
+            pass: params.pass,
             vault: vaultPda,
             callerTokenAccount: params.callerTokenAccount,
             payerTokenAccount: params.payerTokenAccount,
+            treasuryTokenAccount: params.treasuryTokenAccount,
             tokenProgram: spl_token_1.TOKEN_PROGRAM_ID,
         })
             .signers([caller])
@@ -419,44 +422,44 @@ class FlowcraftClient {
         return pool !== null;
     }
     /**
-     * Check if a subscription stream exists
+     * Check if a pass exists
      */
-    async subscriptionExists(pool, subscriber) {
-        const stream = await this.fetchStreamBySubscriber(pool, subscriber);
-        return stream !== null;
+    async passExists(pool, holder) {
+        const pass = await this.fetchPassByHolder(pool, holder);
+        return pass !== null;
     }
     /**
-     * Get claimable amount for a stream
+     * Get claimable amount for a pass
      */
-    async getClaimable(stream) {
-        const info = await this.getStreamInfo(stream);
+    async getClaimable(pass) {
+        const info = await this.getPassInfo(pass);
         return info?.claimable ?? new anchor_1.BN(0);
     }
     /**
-     * Check if subscription is expired
+     * Check if pass is expired
      */
-    async isSubscriptionExpired(stream) {
-        const info = await this.getStreamInfo(stream);
+    async isPassExpired(pass) {
+        const info = await this.getPassInfo(pass);
         return info?.isExpired ?? true;
     }
     // ============================================================================
     // Pool Analytics (Off-chain Calculation)
     // ============================================================================
     /**
-     * Fetch all streams for a pool using getProgramAccounts
-     * Stream account layout: [8 discriminator][32 pool][32 subscriber]...
+     * Fetch all passes for a pool using getProgramAccounts
+     * Pass account layout: [8 discriminator][32 pool][32 holder]...
      * Filter by pool pubkey at offset 8
      */
-    async fetchStreamsByPool(pool) {
+    async fetchPassesByPool(pool) {
         const connection = this.provider.connection;
-        // Stream discriminator from Anchor (SHA256("account:Stream")[0..8])
-        const streamDiscriminator = Buffer.from([166, 224, 59, 4, 202, 10, 186, 83]);
+        // Pass discriminator from Anchor (SHA256("account:Pass")[0..8])
+        const passDiscriminator = Buffer.from([166, 224, 59, 4, 202, 10, 186, 83]);
         const accounts = await connection.getProgramAccounts(this.programId, {
             filters: [
                 {
                     memcmp: {
                         offset: 0,
-                        bytes: streamDiscriminator.toString("base64"),
+                        bytes: passDiscriminator.toString("base64"),
                         encoding: "base64",
                     },
                 },
@@ -468,49 +471,49 @@ class FlowcraftClient {
                 },
             ],
         });
-        const streams = [];
+        const passes = [];
         for (const { pubkey, account } of accounts) {
             try {
-                const stream = this.program.coder.accounts.decode("stream", account.data);
-                streams.push({ address: pubkey, stream });
+                const pass = this.program.coder.accounts.decode("pass", account.data);
+                passes.push({ address: pubkey, pass });
             }
             catch {
                 // Skip malformed accounts
             }
         }
-        return streams;
+        return passes;
     }
     /**
      * Calculate real-time aggregate statistics for a pool
-     * Fetches all streams and calculates vesting off-chain
+     * Fetches all passes and calculates vesting off-chain
      */
     async getPoolAggregateStats(pool) {
-        const streams = await this.fetchStreamsByPool(pool);
+        const passes = await this.fetchPassesByPool(pool);
         const currentTime = Math.floor(Date.now() / 1000);
         let totalDeposited = new anchor_1.BN(0);
         let totalVested = new anchor_1.BN(0);
         let totalWithdrawn = new anchor_1.BN(0);
-        let activeStreams = 0;
-        let expiredStreams = 0;
-        for (const { stream } of streams) {
-            const vesting = (0, utils_1.calculateStreamVesting)(stream, currentTime);
+        let activePasses = 0;
+        let expiredPasses = 0;
+        for (const { pass } of passes) {
+            const vesting = (0, utils_1.calculatePassVesting)(pass, currentTime);
             totalDeposited = totalDeposited.add(vesting.totalDeposited);
             totalVested = totalVested.add(vesting.totalVested);
-            totalWithdrawn = totalWithdrawn.add(stream.totalWithdrawn);
+            totalWithdrawn = totalWithdrawn.add(pass.totalWithdrawn);
             if (vesting.isExpired) {
-                expiredStreams++;
+                expiredPasses++;
             }
             else {
-                activeStreams++;
+                activePasses++;
             }
         }
         const totalClaimable = totalVested.sub(totalWithdrawn);
         const totalUnvested = totalDeposited.sub(totalVested);
         return {
             pool,
-            totalStreams: streams.length,
-            activeStreams,
-            expiredStreams,
+            totalPasses: passes.length,
+            activePasses,
+            expiredPasses,
             totalDeposited,
             totalVested,
             totalWithdrawn,
@@ -520,26 +523,25 @@ class FlowcraftClient {
         };
     }
     /**
-     * Get real-time claimable amount for a stream (calculated off-chain)
+     * Get real-time claimable amount for a pass (calculated off-chain)
      */
-    async getRealTimeClaimable(streamAddress) {
-        const stream = await this.fetchStream(streamAddress);
-        if (!stream)
+    async getRealTimeClaimable(passAddress) {
+        const pass = await this.fetchPass(passAddress);
+        if (!pass)
             return new anchor_1.BN(0);
-        const vesting = (0, utils_1.calculateStreamVesting)(stream);
+        const vesting = (0, utils_1.calculatePassVesting)(pass);
         return vesting.claimable;
     }
     /**
-     * Get detailed stream info with real-time vesting calculation
+     * Get detailed pass info with real-time vesting calculation
      */
-    async getStreamInfoRealTime(streamAddress) {
-        const stream = await this.fetchStream(streamAddress);
-        if (!stream)
+    async getPassInfoRealTime(passAddress) {
+        const pass = await this.fetchPass(passAddress);
+        if (!pass)
             return null;
         const currentTime = Math.floor(Date.now() / 1000);
-        const vesting = (0, utils_1.calculateStreamVesting)(stream, currentTime);
-        const segments = stream.segments.map((seg, index) => {
-            const segVested = vesting.totalVested; // Simplified - could calculate per-segment
+        const vesting = (0, utils_1.calculatePassVesting)(pass, currentTime);
+        const segments = pass.segments.map((seg, index) => {
             return {
                 index,
                 tier: seg.tier,
@@ -553,13 +555,13 @@ class FlowcraftClient {
             };
         });
         return {
-            address: streamAddress,
-            pool: stream.pool,
-            subscriber: stream.subscriber,
-            startTime: new Date(stream.startTime.toNumber() * 1000),
+            address: passAddress,
+            pool: pass.pool,
+            holder: pass.holder,
+            startTime: new Date(pass.startTime.toNumber() * 1000),
             totalDeposited: vesting.totalDeposited,
             totalVested: vesting.totalVested,
-            totalWithdrawn: stream.totalWithdrawn,
+            totalWithdrawn: pass.totalWithdrawn,
             claimable: vesting.claimable,
             activeSegments: segments.filter((s) => !s.isComplete).length,
             cancelledSegments: segments.filter((s) => s.cancelled).length,

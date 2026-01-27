@@ -4,7 +4,7 @@ import {
   PROGRAM_ID,
   CONFIG_SEED,
   POOL_SEED,
-  STREAM_SEED,
+  PASS_SEED,
   VAULT_SEED,
   RATE_DECIMALS,
   BPS_DENOMINATOR,
@@ -35,15 +35,15 @@ export function getPoolPda(
 }
 
 /**
- * Derive the stream PDA for a pool and subscriber
+ * Derive the pass PDA for a pool and holder
  */
-export function getStreamPda(
+export function getPassPda(
   pool: PublicKey,
-  subscriber: PublicKey,
+  holder: PublicKey,
   programId: PublicKey = PROGRAM_ID
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from(STREAM_SEED), pool.toBuffer(), subscriber.toBuffer()],
+    [Buffer.from(PASS_SEED), pool.toBuffer(), holder.toBuffer()],
     programId
   );
 }
@@ -97,7 +97,7 @@ export function calculateRemainingDuration(unvested: BN, ratePerSecond: BN): BN 
 /**
  * Calculate new cost at a different rate for remaining duration
  */
-export function calculateUpgradeCost(
+export function calculateChangeCost(
   unvested: BN,
   currentRate: BN,
   newRate: BN
@@ -175,11 +175,11 @@ export function calculateSegmentVested(
 }
 
 /**
- * Calculate real-time vesting for an entire stream
+ * Calculate real-time vesting for an entire pass
  * Returns { totalVested, totalUnvested, claimable, isExpired }
  */
-export function calculateStreamVesting(
-  stream: {
+export function calculatePassVesting(
+  pass: {
     segments: Array<{ amount: BN; vested: BN; ratePerSecond: BN; cancelled: boolean }>;
     lastUpdateTime: BN;
     archivedVested: BN;
@@ -194,12 +194,12 @@ export function calculateStreamVesting(
   claimable: BN;
   isExpired: boolean;
 } {
-  let totalDeposited = stream.archivedAmount;
-  let totalVested = stream.archivedVested;
-  let remainingTime = new BN(currentTime).sub(stream.lastUpdateTime);
+  let totalDeposited = pass.archivedAmount;
+  let totalVested = pass.archivedVested;
+  let remainingTime = new BN(currentTime).sub(pass.lastUpdateTime);
   let allComplete = true;
 
-  for (const segment of stream.segments) {
+  for (const segment of pass.segments) {
     totalDeposited = totalDeposited.add(segment.amount);
 
     if (segment.cancelled) {
@@ -233,7 +233,7 @@ export function calculateStreamVesting(
   }
 
   const totalUnvested = totalDeposited.sub(totalVested);
-  const claimable = totalVested.sub(stream.totalWithdrawn);
+  const claimable = totalVested.sub(pass.totalWithdrawn);
 
   return {
     totalDeposited,

@@ -12,5 +12,5 @@ export const MAX_SEGMENTS = 100;
 // Seeds for PDA derivation
 export const CONFIG_SEED = "config";
 export const POOL_SEED = "pool";
-export const STREAM_SEED = "stream";
+export const PASS_SEED = "pass";
 export const VAULT_SEED = "vault";
