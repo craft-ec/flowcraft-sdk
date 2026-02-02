@@ -16,26 +16,26 @@ import { PROGRAM_ID } from "./constants";
 import {
   Config,
   Pool,
-  Stream,
+  Pass,
   PoolInfo,
-  StreamInfo,
+  PassInfo,
   SegmentInfo,
   PoolAggregateStats,
-  StreamWithAddress,
+  PassWithAddress,
   CreatePoolParams,
-  SubscribeParams,
+  CreatePassParams,
   AddSegmentParams,
   ClaimParams,
   CancelSegmentParams,
-  UpgradeSegmentParams,
+  ChangeSegmentParams,
 } from "./types";
 import {
   getConfigPda,
   getPoolPda,
-  getStreamPda,
+  getPassPda,
   getVaultPda,
   toBN,
-  calculateStreamVesting,
+  calculatePassVesting,
 } from "./utils";
 
 // Import IDL from generated file
@@ -79,10 +79,10 @@ export class FlowcraftClient {
   }
 
   /**
-   * Get the stream PDA for a pool and subscriber
+   * Get the pass PDA for a pool and holder
    */
-  getStreamPda(pool: PublicKey, subscriber: PublicKey): [PublicKey, number] {
-    return getStreamPda(pool, subscriber, this.programId);
+  getPassPda(pool: PublicKey, holder: PublicKey): [PublicKey, number] {
+    return getPassPda(pool, holder, this.programId);
   }
 
   /**
@@ -130,26 +130,26 @@ export class FlowcraftClient {
   }
 
   /**
-   * Fetch a stream by address
+   * Fetch a pass by address
    */
-  async fetchStream(stream: PublicKey): Promise<Stream | null> {
+  async fetchPass(pass: PublicKey): Promise<Pass | null> {
     try {
-      const account = await (this.program.account as any).stream.fetch(stream);
-      return account as Stream;
+      const account = await (this.program.account as any).pass.fetch(pass);
+      return account as Pass;
     } catch {
       return null;
     }
   }
 
   /**
-   * Fetch a stream by pool and subscriber
+   * Fetch a pass by pool and holder
    */
-  async fetchStreamBySubscriber(
+  async fetchPassByHolder(
     pool: PublicKey,
-    subscriber: PublicKey
-  ): Promise<Stream | null> {
-    const [streamPda] = this.getStreamPda(pool, subscriber);
-    return this.fetchStream(streamPda);
+    holder: PublicKey
+  ): Promise<Pass | null> {
+    const [passPda] = this.getPassPda(pool, holder);
+    return this.fetchPass(passPda);
   }
 
   /**
@@ -164,7 +164,7 @@ export class FlowcraftClient {
       owner: poolData.owner,
       mint: poolData.mint,
       name: poolData.name,
-      totalSubscribers: poolData.totalSubscribers.toNumber(),
+      totalPasses: poolData.totalPasses.toNumber(),
       totalDeposited: poolData.totalDeposited,
       totalWithdrawn: poolData.totalWithdrawn,
       totalRefunded: poolData.totalRefunded,
@@ -173,18 +173,18 @@ export class FlowcraftClient {
   }
 
   /**
-   * Fetch stream with computed info
+   * Fetch pass with computed info
    */
-  async getStreamInfo(stream: PublicKey): Promise<StreamInfo | null> {
-    const streamData = await this.fetchStream(stream);
-    if (!streamData) return null;
+  async getPassInfo(pass: PublicKey): Promise<PassInfo | null> {
+    const passData = await this.fetchPass(pass);
+    if (!passData) return null;
 
-    let totalDeposited = streamData.archivedAmount;
-    let totalVested = streamData.archivedVested;
+    let totalDeposited = passData.archivedAmount;
+    let totalVested = passData.archivedVested;
     let activeSegments = 0;
     let cancelledSegments = 0;
 
-    const segments: SegmentInfo[] = streamData.segments.map((seg, index) => {
+    const segments: SegmentInfo[] = passData.segments.map((seg, index) => {
       totalDeposited = totalDeposited.add(seg.amount);
       totalVested = totalVested.add(seg.vested);
 
@@ -207,19 +207,19 @@ export class FlowcraftClient {
       };
     });
 
-    const claimable = totalVested.sub(streamData.totalWithdrawn);
-    const isExpired = streamData.segments.every(
+    const claimable = totalVested.sub(passData.totalWithdrawn);
+    const isExpired = passData.segments.every(
       (s) => s.vested.eq(s.amount) || s.cancelled
     );
 
     return {
-      address: stream,
-      pool: streamData.pool,
-      subscriber: streamData.subscriber,
-      startTime: new Date(streamData.startTime.toNumber() * 1000),
+      address: pass,
+      pool: passData.pool,
+      holder: passData.holder,
+      startTime: new Date(passData.startTime.toNumber() * 1000),
       totalDeposited,
       totalVested,
-      totalWithdrawn: streamData.totalWithdrawn,
+      totalWithdrawn: passData.totalWithdrawn,
       claimable,
       activeSegments,
       cancelledSegments,
@@ -283,7 +283,7 @@ export class FlowcraftClient {
   // ============================================================================
 
   /**
-   * Create a new subscription pool
+   * Create a new pool
    * @param payer - Keypair that pays for rent (signs the transaction)
    * @param owner - PublicKey of pool owner (can be any account, including PDA)
    * @param params - Pool creation parameters
@@ -314,56 +314,80 @@ export class FlowcraftClient {
   }
 
   // ============================================================================
-  // Subscription Instructions
+  // Pass Instructions
   // ============================================================================
 
   /**
-   * Subscribe to a pool (creates stream with first segment)
+   * Create a pass (creates pass with first segment)
+   * For new passes, segmentIndex is 0. For reactivated expired passes, segments are cleared so index is also 0.
    */
-  async subscribe(
-    subscriber: Keypair,
-    params: SubscribeParams
-  ): Promise<{ signature: string; stream: PublicKey }> {
+  async createPass(
+    holder: Keypair,
+    params: CreatePassParams
+  ): Promise<{ signature: string; pass: PublicKey; segmentIndex: number }> {
     const [configPda] = this.getConfigPda();
-    const [streamPda] = this.getStreamPda(params.pool, subscriber.publicKey);
+    const [passPda] = this.getPassPda(params.pool, holder.publicKey);
     const [vaultPda] = this.getVaultPda(params.pool);
 
+    // Check if pass exists and get current segment count
+    let segmentIndex = 0;
+    try {
+      const existingPass = await this.fetchPass(passPda);
+      if (existingPass) {
+        // Check if pass is expired (all segments fully vested or cancelled)
+        const isExpired = existingPass.segments.every(
+          (s) => s.vested.eq(s.amount) || s.cancelled
+        );
+        // If expired, segments will be cleared; otherwise add to existing
+        segmentIndex = isExpired ? 0 : existingPass.segments.length;
+      }
+    } catch {
+      // New pass - segment index is 0
+    }
+
     const signature = await this.program.methods
-      .subscribe(params.tier, toBN(params.amount), toBN(params.durationSeconds))
+      .createPass(params.tier, toBN(params.amount), toBN(params.durationSeconds))
       .accounts({
-        subscriber: subscriber.publicKey,
+        holder: holder.publicKey,
         pool: params.pool,
         config: configPda,
-        stream: streamPda,
+        pass: passPda,
         vault: vaultPda,
-        subscriberTokenAccount: params.subscriberTokenAccount,
+        holderTokenAccount: params.holderTokenAccount,
         treasuryTokenAccount: params.treasuryTokenAccount,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
       })
-      .signers([subscriber])
+      .signers([holder])
       .rpc();
 
-    return { signature, stream: streamPda };
+    return { signature, pass: passPda, segmentIndex };
   }
 
   /**
-   * Add a new segment to an existing subscription
+   * Add a new segment to an existing pass
    */
   async addSegment(
     payer: Keypair,
     params: AddSegmentParams
-  ): Promise<string> {
+  ): Promise<{ signature: string; segmentIndex: number }> {
     const [configPda] = this.getConfigPda();
     const [vaultPda] = this.getVaultPda(params.pool);
 
-    return await this.program.methods
+    // Fetch pass to get current segment count
+    const pass = await this.fetchPass(params.pass);
+    if (!pass) {
+      throw new Error("Pass not found");
+    }
+    const segmentIndex = pass.segments.length;
+
+    const signature = await this.program.methods
       .addSegment(params.tier, toBN(params.amount), toBN(params.durationSeconds))
       .accounts({
         payer: payer.publicKey,
         pool: params.pool,
         config: configPda,
-        stream: params.stream,
+        pass: params.pass,
         vault: vaultPda,
         payerTokenAccount: params.payerTokenAccount,
         treasuryTokenAccount: params.treasuryTokenAccount,
@@ -371,6 +395,8 @@ export class FlowcraftClient {
       })
       .signers([payer])
       .rpc();
+
+    return { signature, segmentIndex };
   }
 
   /**
@@ -387,7 +413,7 @@ export class FlowcraftClient {
       .accounts({
         owner: owner.publicKey,
         pool: params.pool,
-        stream: params.stream,
+        pass: params.pass,
         vault: vaultPda,
         ownerTokenAccount: params.ownerTokenAccount,
         tokenProgram: TOKEN_PROGRAM_ID,
@@ -397,13 +423,13 @@ export class FlowcraftClient {
   }
 
   /**
-   * Claim vested tokens from multiple streams in a single transaction
+   * Claim vested tokens from multiple passes in a single transaction
    */
   async claimBatch(
     owner: Keypair,
     params: {
       pool: PublicKey;
-      streams: PublicKey[];
+      passes: PublicKey[];
       ownerTokenAccount: PublicKey;
     }
   ): Promise<string> {
@@ -419,8 +445,8 @@ export class FlowcraftClient {
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .remainingAccounts(
-        params.streams.map((stream) => ({
-          pubkey: stream,
+        params.passes.map((pass) => ({
+          pubkey: pass,
           isSigner: false,
           isWritable: true,
         }))
@@ -430,7 +456,7 @@ export class FlowcraftClient {
   }
 
   /**
-   * Build batch claim transactions for all streams in a pool
+   * Build batch claim transactions for all passes in a pool
    * Returns transactions ready to be signed with signAllTransactions
    */
   async buildClaimAllTransactions(
@@ -438,17 +464,17 @@ export class FlowcraftClient {
     pool: PublicKey,
     ownerTokenAccount: PublicKey,
     batchSize: number = 20
-  ): Promise<{ transactions: any[]; totalStreams: number }> {
-    // Fetch all streams for this pool
-    const streams = await this.fetchStreamsByPool(pool);
-    const streamAddresses = streams.map((s: StreamWithAddress) => s.address);
+  ): Promise<{ transactions: any[]; totalPasses: number }> {
+    // Fetch all passes for this pool
+    const passes = await this.fetchPassesByPool(pool);
+    const passAddresses = passes.map((p: PassWithAddress) => p.address);
 
     const [vaultPda] = this.getVaultPda(pool);
     const transactions: any[] = [];
 
     // Split into batches
-    for (let i = 0; i < streamAddresses.length; i += batchSize) {
-      const batch = streamAddresses.slice(i, i + batchSize);
+    for (let i = 0; i < passAddresses.length; i += batchSize) {
+      const batch = passAddresses.slice(i, i + batchSize);
 
       const tx = await this.program.methods
         .claimBatch()
@@ -471,14 +497,14 @@ export class FlowcraftClient {
       transactions.push(tx);
     }
 
-    return { transactions, totalStreams: streamAddresses.length };
+    return { transactions, totalPasses: passAddresses.length };
   }
 
   /**
-   * Cancel a segment (subscriber only)
+   * Cancel a segment (holder only)
    */
   async cancelSegment(
-    subscriber: Keypair,
+    holder: Keypair,
     params: CancelSegmentParams
   ): Promise<string> {
     const [vaultPda] = this.getVaultPda(params.pool);
@@ -486,40 +512,44 @@ export class FlowcraftClient {
     return await this.program.methods
       .cancelSegment(params.segmentIndex)
       .accounts({
-        subscriber: subscriber.publicKey,
+        holder: holder.publicKey,
         pool: params.pool,
-        stream: params.stream,
+        pass: params.pass,
         vault: vaultPda,
         refundTokenAccount: params.refundTokenAccount,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
-      .signers([subscriber])
+      .signers([holder])
       .rpc();
   }
 
   /**
-   * Upgrade or downgrade a segment
+   * Change segment tier (upgrade or downgrade)
    */
-  async upgradeSegment(
+  async changeSegment(
     caller: Keypair,
-    params: UpgradeSegmentParams
+    params: ChangeSegmentParams
   ): Promise<string> {
+    const [configPda] = this.getConfigPda();
     const [vaultPda] = this.getVaultPda(params.pool);
 
     return await this.program.methods
-      .upgradeSegment(
+      .changeSegment(
         params.segmentIndex,
+        params.newTier,
         toBN(params.newAmount),
         toBN(params.newDuration)
       )
       .accounts({
         caller: caller.publicKey,
-        subscriber: params.subscriber,
+        holder: params.holder,
+        config: configPda,
         pool: params.pool,
-        stream: params.stream,
+        pass: params.pass,
         vault: vaultPda,
         callerTokenAccount: params.callerTokenAccount,
         payerTokenAccount: params.payerTokenAccount,
+        treasuryTokenAccount: params.treasuryTokenAccount,
         tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([caller])
@@ -539,26 +569,26 @@ export class FlowcraftClient {
   }
 
   /**
-   * Check if a subscription stream exists
+   * Check if a pass exists
    */
-  async subscriptionExists(pool: PublicKey, subscriber: PublicKey): Promise<boolean> {
-    const stream = await this.fetchStreamBySubscriber(pool, subscriber);
-    return stream !== null;
+  async passExists(pool: PublicKey, holder: PublicKey): Promise<boolean> {
+    const pass = await this.fetchPassByHolder(pool, holder);
+    return pass !== null;
   }
 
   /**
-   * Get claimable amount for a stream
+   * Get claimable amount for a pass
    */
-  async getClaimable(stream: PublicKey): Promise<BN> {
-    const info = await this.getStreamInfo(stream);
+  async getClaimable(pass: PublicKey): Promise<BN> {
+    const info = await this.getPassInfo(pass);
     return info?.claimable ?? new BN(0);
   }
 
   /**
-   * Check if subscription is expired
+   * Check if pass is expired
    */
-  async isSubscriptionExpired(stream: PublicKey): Promise<boolean> {
-    const info = await this.getStreamInfo(stream);
+  async isPassExpired(pass: PublicKey): Promise<boolean> {
+    const info = await this.getPassInfo(pass);
     return info?.isExpired ?? true;
   }
 
@@ -567,22 +597,22 @@ export class FlowcraftClient {
   // ============================================================================
 
   /**
-   * Fetch all streams for a pool using getProgramAccounts
-   * Stream account layout: [8 discriminator][32 pool][32 subscriber]...
+   * Fetch all passes for a pool using getProgramAccounts
+   * Pass account layout: [8 discriminator][32 pool][32 holder]...
    * Filter by pool pubkey at offset 8
    */
-  async fetchStreamsByPool(pool: PublicKey): Promise<StreamWithAddress[]> {
+  async fetchPassesByPool(pool: PublicKey): Promise<PassWithAddress[]> {
     const connection = this.provider.connection;
 
-    // Stream discriminator from Anchor (SHA256("account:Stream")[0..8])
-    const streamDiscriminator = Buffer.from([166, 224, 59, 4, 202, 10, 186, 83]);
+    // Pass discriminator from Anchor (SHA256("account:Pass")[0..8])
+    const passDiscriminator = Buffer.from([40, 247, 140, 113, 56, 14, 57, 44]);
 
     const accounts = await connection.getProgramAccounts(this.programId, {
       filters: [
         {
           memcmp: {
             offset: 0,
-            bytes: streamDiscriminator.toString("base64"),
+            bytes: passDiscriminator.toString("base64"),
             encoding: "base64",
           },
         },
@@ -595,48 +625,48 @@ export class FlowcraftClient {
       ],
     });
 
-    const streams: StreamWithAddress[] = [];
+    const passes: PassWithAddress[] = [];
 
     for (const { pubkey, account } of accounts) {
       try {
-        const stream = (this.program.coder.accounts as any).decode(
-          "stream",
+        const pass = (this.program.coder.accounts as any).decode(
+          "pass",
           account.data
-        ) as Stream;
-        streams.push({ address: pubkey, stream });
+        ) as Pass;
+        passes.push({ address: pubkey, pass });
       } catch {
         // Skip malformed accounts
       }
     }
 
-    return streams;
+    return passes;
   }
 
   /**
    * Calculate real-time aggregate statistics for a pool
-   * Fetches all streams and calculates vesting off-chain
+   * Fetches all passes and calculates vesting off-chain
    */
   async getPoolAggregateStats(pool: PublicKey): Promise<PoolAggregateStats> {
-    const streams = await this.fetchStreamsByPool(pool);
+    const passes = await this.fetchPassesByPool(pool);
     const currentTime = Math.floor(Date.now() / 1000);
 
     let totalDeposited = new BN(0);
     let totalVested = new BN(0);
     let totalWithdrawn = new BN(0);
-    let activeStreams = 0;
-    let expiredStreams = 0;
+    let activePasses = 0;
+    let expiredPasses = 0;
 
-    for (const { stream } of streams) {
-      const vesting = calculateStreamVesting(stream, currentTime);
+    for (const { pass } of passes) {
+      const vesting = calculatePassVesting(pass, currentTime);
 
       totalDeposited = totalDeposited.add(vesting.totalDeposited);
       totalVested = totalVested.add(vesting.totalVested);
-      totalWithdrawn = totalWithdrawn.add(stream.totalWithdrawn);
+      totalWithdrawn = totalWithdrawn.add(pass.totalWithdrawn);
 
       if (vesting.isExpired) {
-        expiredStreams++;
+        expiredPasses++;
       } else {
-        activeStreams++;
+        activePasses++;
       }
     }
 
@@ -645,9 +675,9 @@ export class FlowcraftClient {
 
     return {
       pool,
-      totalStreams: streams.length,
-      activeStreams,
-      expiredStreams,
+      totalPasses: passes.length,
+      activePasses,
+      expiredPasses,
       totalDeposited,
       totalVested,
       totalWithdrawn,
@@ -658,28 +688,27 @@ export class FlowcraftClient {
   }
 
   /**
-   * Get real-time claimable amount for a stream (calculated off-chain)
+   * Get real-time claimable amount for a pass (calculated off-chain)
    */
-  async getRealTimeClaimable(streamAddress: PublicKey): Promise<BN> {
-    const stream = await this.fetchStream(streamAddress);
-    if (!stream) return new BN(0);
+  async getRealTimeClaimable(passAddress: PublicKey): Promise<BN> {
+    const pass = await this.fetchPass(passAddress);
+    if (!pass) return new BN(0);
 
-    const vesting = calculateStreamVesting(stream);
+    const vesting = calculatePassVesting(pass);
     return vesting.claimable;
   }
 
   /**
-   * Get detailed stream info with real-time vesting calculation
+   * Get detailed pass info with real-time vesting calculation
    */
-  async getStreamInfoRealTime(streamAddress: PublicKey): Promise<StreamInfo | null> {
-    const stream = await this.fetchStream(streamAddress);
-    if (!stream) return null;
+  async getPassInfoRealTime(passAddress: PublicKey): Promise<PassInfo | null> {
+    const pass = await this.fetchPass(passAddress);
+    if (!pass) return null;
 
     const currentTime = Math.floor(Date.now() / 1000);
-    const vesting = calculateStreamVesting(stream, currentTime);
+    const vesting = calculatePassVesting(pass, currentTime);
 
-    const segments: SegmentInfo[] = stream.segments.map((seg, index) => {
-      const segVested = vesting.totalVested; // Simplified - could calculate per-segment
+    const segments: SegmentInfo[] = pass.segments.map((seg, index) => {
       return {
         index,
         tier: seg.tier,
@@ -694,13 +723,13 @@ export class FlowcraftClient {
     });
 
     return {
-      address: streamAddress,
-      pool: stream.pool,
-      subscriber: stream.subscriber,
-      startTime: new Date(stream.startTime.toNumber() * 1000),
+      address: passAddress,
+      pool: pass.pool,
+      holder: pass.holder,
+      startTime: new Date(pass.startTime.toNumber() * 1000),
       totalDeposited: vesting.totalDeposited,
       totalVested: vesting.totalVested,
-      totalWithdrawn: stream.totalWithdrawn,
+      totalWithdrawn: pass.totalWithdrawn,
       claimable: vesting.claimable,
       activeSegments: segments.filter((s) => !s.isComplete).length,
       cancelledSegments: segments.filter((s) => s.cancelled).length,

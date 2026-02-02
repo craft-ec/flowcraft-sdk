@@ -5,19 +5,19 @@ export { FlowcraftClient, IDL } from "./client";
 export {
   Config,
   Pool,
-  Stream,
+  Pass,
   Segment,
   PoolInfo,
-  StreamInfo,
+  PassInfo,
   SegmentInfo,
   PoolAggregateStats,
-  StreamWithAddress,
+  PassWithAddress,
   CreatePoolParams,
-  SubscribeParams,
+  CreatePassParams,
   AddSegmentParams,
   ClaimParams,
   CancelSegmentParams,
-  UpgradeSegmentParams,
+  ChangeSegmentParams,
 } from "./types";
 
 // Constants
@@ -29,7 +29,7 @@ export {
   MAX_SEGMENTS,
   CONFIG_SEED,
   POOL_SEED,
-  STREAM_SEED,
+  PASS_SEED,
   VAULT_SEED,
 } from "./constants";
 
@@ -37,15 +37,15 @@ export {
 export {
   getConfigPda,
   getPoolPda,
-  getStreamPda,
+  getPassPda,
   getVaultPda,
   calculateFee,
   calculateNetAmount,
   calculateRate,
   calculateRemainingDuration,
-  calculateUpgradeCost,
+  calculateChangeCost,
   calculateSegmentVested,
-  calculateStreamVesting,
+  calculatePassVesting,
   bnToNumber,
   numberToBn,
   formatTokenAmount,
